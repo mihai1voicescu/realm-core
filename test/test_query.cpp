@@ -4148,6 +4148,7 @@ TEST(Query_LinkChainSortErrors)
 
     auto t1_int_col = t1->add_column(type_Int, "t1_int");
     auto t1_linklist_col = t1->add_column_list(*t2, "t1_linklist");
+    auto t1_link_col = t1->add_column(*t2, "t1_link");
     auto t2_string_col = t2->add_column(type_String, "t2_string");
     t2->add_column(*t1, "t2_link_t1"); // add a backlink to t1
 
@@ -4161,7 +4162,8 @@ TEST(Query_LinkChainSortErrors)
                       ErrorCodes::InvalidSortDescriptor);
     CHECK_LOGIC_ERROR(t1->get_sorted_view(SortDescriptor({{t1_int_col, t2_string_col}})),
                       ErrorCodes::InvalidSortDescriptor);
-    CHECK_LOGIC_ERROR(t1->get_sorted_view(SortDescriptor({{t1_linklist_col}})), ErrorCodes::InvalidSortDescriptor);
+    CHECK_LOGIC_ERROR(t1->get_sorted_view(SortDescriptor({{t1_link_col, t2_string_col}})),
+                      ErrorCodes::InvalidSortDescriptor);
 }
 
 

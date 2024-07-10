@@ -225,26 +225,27 @@ BaseDescriptor::Sorter::Sorter(std::vector<std::vector<ExtendedColumnKey>> const
             throw InvalidArgument(ErrorCodes::InvalidSortDescriptor, "Cannot sort on a collection property");
         }
 
-        if (sz == 1) { // no link chain
-            m_columns.emplace_back(&root_table, columns[0], ascending[i]);
-            continue;
-        }
-
         std::vector<const Table*> tables = {&root_table};
-        tables.resize(sz);
-        for (size_t j = 0; j + 1 < sz; ++j) {
-            ColKey col = columns[j];
-            if (!tables[j]->valid_column(col)) {
-                throw InvalidArgument(ErrorCodes::InvalidSortDescriptor, "Invalid property");
+        if (sz > 1) { // no link chain
+            tables.resize(sz);
+            for (size_t j = 0; j + 1 < sz; ++j) {
+                ColKey col = columns[j];
+                if (!tables[j]->valid_column(col)) {
+                    throw InvalidArgument(ErrorCodes::InvalidSortDescriptor, "Invalid property");
+                }
+                if (!(col.get_type() == col_type_Link && !col.is_list())) {
+                    // Only last column in link chain is allowed to be non-link
+                    throw InvalidArgument(ErrorCodes::InvalidSortDescriptor, "All but last property must be a link");
+                }
+                tables[j + 1] = tables[j]->get_link_target(col).unchecked_ptr();
             }
-            if (!(col.get_type() == col_type_Link && !col.is_list())) {
-                // Only last column in link chain is allowed to be non-link
-                throw InvalidArgument(ErrorCodes::InvalidSortDescriptor, "All but last property must be a link");
-            }
-            tables[j + 1] = tables[j]->get_link_target(col).unchecked_ptr();
         }
 
-        m_columns.emplace_back(tables.back(), columns.back(), ascending[i]);
+        auto& last_col = columns.back();
+        if (ColKey(last_col).get_type() == col_type_Link) {
+            throw InvalidArgument(ErrorCodes::InvalidSortDescriptor, "Last property must not be a link");
+        }
+        m_columns.emplace_back(tables.back(), last_col, ascending[i]);
 
         auto& translated_keys = m_columns.back().translated_keys;
         translated_keys.resize(translated_size);
